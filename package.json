@@ -1,0 +1,19 @@
+{
+  "name": "contable-tpl",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Archivo Contable - TPL | Solutions & Payroll",
+  "scripts": {
+    "dev": "node ./node_modules/next/dist/bin/next dev",
+    "build": "node ./node_modules/next/dist/bin/next build",
+    "start": "node ./node_modules/next/dist/bin/next start"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "exceljs": "^4.4.0",
+    "next": "^14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "xlsx": "^0.18.5"
+  }
+}
