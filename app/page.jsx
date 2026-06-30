@@ -2,89 +2,16 @@
 
 import { useState } from 'react'
 
-const TABLE_FIELDS = {
-  cuentas: [
-    { key: 'concepto',    label: 'Concepto',    placeholder: 'Ej: A000',               required: true  },
-    { key: 'descripcion', label: 'Descripcion', placeholder: 'Ej: SALARIO BASICO',     required: true  },
-    { key: 'tipo',        label: 'Tipo',        placeholder: 'Ej: 1, 2 o 3',           required: false },
-    { key: 'cuenta',      label: 'Cuenta',      placeholder: 'Ej: 51050505',           required: false },
-    { key: 'naturaleza',  label: 'Naturaleza',  placeholder: 'Ej: DEBITO o CREDITO',   required: false },
-  ],
-  maestro_personal: [
-    { key: 'empleado',    label: 'No. Empleado',         placeholder: 'Ej: 1037548244',              required: true  },
-    { key: 'docto_ident', label: 'Documento Identidad',  placeholder: 'Ej: 1037548244',              required: false },
-    { key: 'nombre',      label: 'Nombre Completo',      placeholder: 'Ej: GARCIA GOMEZ JUAN',       required: false },
-    { key: 'arl',         label: 'ARL',                  placeholder: 'Nombre de la ARL',            required: false },
-    { key: 'eps',         label: 'EPS',                  placeholder: 'Nombre de la EPS',            required: false },
-    { key: 'afp',         label: 'AFP',                  placeholder: 'Nombre del AFP',              required: false },
-    { key: 'dsc_ccf',     label: 'Caja de Compensacion', placeholder: 'Nombre de la caja',           required: false },
-  ],
-  administradoras: [
-    { key: 'tipo',   label: 'Tipo',   placeholder: 'ARL, EPS, AFP o CAJA', required: true  },
-    { key: 'nombre', label: 'Nombre', placeholder: 'Nombre de la administradora', required: true  },
-    { key: 'nit',    label: 'NIT',    placeholder: 'Ej: 800229739',        required: true  },
-  ],
-}
-
 function App() {
   const [isHelpExpanded, setIsHelpExpanded] = useState(false)
-  const [activeModule, setActiveModule] = useState('proceso-principal')
   const [isDragging, setIsDragging] = useState(false)
 
-  // Módulo 2 – Agregar Datos
-  const [targetTable, setTargetTable] = useState('cuentas')
-  const [formData, setFormData] = useState({})
-  const [recentRecords, setRecentRecords] = useState([])
-  const [mod1Msg, setMod1Msg] = useState('')
-  const [mod1Loading, setMod1Loading] = useState(false)
-
-  // Módulo 2 – Proceso Principal
   const [archivoFile, setArchivoFile] = useState(null)
+  const [infoFile, setInfoFile] = useState(null)
   const [fechaDoc, setFechaDoc] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [resultMsg, setResultMsg] = useState('')
 
-  // ── Módulo 2: agregar registro ────────────────────────────
-  async function agregarRegistro() {
-    const fields = TABLE_FIELDS[targetTable]
-    const missing = fields.find(f => f.required && !String(formData[f.key] || '').trim())
-    if (missing) {
-      setMod1Msg(`El campo "${missing.label}" es obligatorio.`)
-      return
-    }
-    setMod1Loading(true)
-    setMod1Msg('')
-    try {
-      const endpoints = {
-        cuentas:         '/api/cuentas',
-        maestro_personal: '/api/maestro',
-        administradoras: '/api/administradoras',
-      }
-      const res = await fetch(endpoints[targetTable], {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Error desconocido')
-      }
-      const primaryKey = { cuentas: 'concepto', maestro_personal: 'empleado', administradoras: 'nombre' }[targetTable]
-      const nameKey    = { cuentas: 'descripcion', maestro_personal: 'nombre', administradoras: 'nit' }[targetTable]
-      setRecentRecords(prev => [
-        { table: targetTable, code: formData[primaryKey] || '', detail: formData[nameKey] || '' },
-        ...prev.slice(0, 4),
-      ])
-      setFormData({})
-      setMod1Msg('Registro guardado correctamente.')
-    } catch (err) {
-      setMod1Msg(`Error: ${err.message}`)
-    } finally {
-      setMod1Loading(false)
-    }
-  }
-
-  // ── Módulo 2: generar archivo final ──────────────────────
   async function generarArchivo() {
     if (!archivoFile) { setResultMsg('Selecciona el Archivo Inicial.'); return }
     if (!fechaDoc)    { setResultMsg('Selecciona la fecha del documento.'); return }
@@ -94,6 +21,7 @@ function App() {
       const fd = new FormData()
       fd.append('archivo', archivoFile)
       fd.append('fecha', fechaDoc)
+      if (infoFile) fd.append('informacion', infoFile)
       const res = await fetch('/api/procesar', { method: 'POST', body: fd })
       if (!res.ok) {
         const err = await res.json()
@@ -182,67 +110,38 @@ function App() {
                 <li>
                   <span className="step-number">1</span>
                   <div>
-                    <strong>Modulo 1: Proceso Principal</strong>
-                    <p>Sube el Archivo Inicial, selecciona la fecha y genera el Archivo Final automaticamente.</p>
+                    <strong>Sube los archivos</strong>
+                    <p>Sube el Archivo Inicial (reporte de nomina) y opcionalmente el archivo de Informacion General (Cuentas y Entidades).</p>
                   </div>
                 </li>
                 <li>
                   <span className="step-number">2</span>
                   <div>
-                    <strong>Modulo 2: Agregar Datos</strong>
-                    <p>Agrega o actualiza registros en Cuentas, Maestro Personal y Administradoras.</p>
+                    <strong>Selecciona la fecha</strong>
+                    <p>Elige la fecha del documento contable. El archivo se nombrara automaticamente.</p>
                   </div>
                 </li>
                 <li>
                   <span className="step-number">3</span>
                   <div>
                     <strong>Descarga el resultado</strong>
-                    <p>El sistema genera el Excel con las hojas NO y PS listas para usar.</p>
+                    <p>El sistema genera el Excel con las hojas NO y PS listas para importar al sistema contable.</p>
                   </div>
                 </li>
               </ol>
             </div>
           </div>
 
-          {/* Selector de modulo */}
-          <div className="module-switcher" role="tablist" aria-label="Selector de modulo">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeModule === 'proceso-principal'}
-              className={`module-tab ${activeModule === 'proceso-principal' ? 'active' : ''}`}
-              onClick={() => setActiveModule('proceso-principal')}
-            >
-              Modulo 1: Proceso Principal
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeModule === 'carga-datos'}
-              className={`module-tab ${activeModule === 'carga-datos' ? 'active' : ''}`}
-              onClick={() => setActiveModule('carga-datos')}
-            >
-              Modulo 2: Agregar Datos
-            </button>
-          </div>
-
           {/* Card principal */}
           <div className="card">
             <div className="card-header">
-              <h2>
-                {activeModule === 'proceso-principal'
-                  ? 'Modulo 1: Proceso Principal'
-                  : 'Modulo 2: Agregar Datos a Tablas'}
-              </h2>
+              <h2>Proceso Principal</h2>
               <p className="description">
-                {activeModule === 'proceso-principal'
-                  ? 'Sube el Archivo Inicial, selecciona la fecha y descarga el Archivo Final generado.'
-                  : 'Agrega o actualiza registros en las tablas Cuentas, Maestro Personal y Administradoras.'}
+                Sube el Archivo Inicial y el de Informacion General, selecciona la fecha y descarga el Archivo Final generado.
               </p>
             </div>
 
             <div className="card-body">
-              {activeModule === 'proceso-principal' ? (
                 <div className="form-section">
                   {/* ── Área de carga de archivo ── */}
                   <div className="form-group">
@@ -298,6 +197,58 @@ function App() {
                     </div>
                   </div>
 
+                  {/* ── Área de carga de archivo de información ── */}
+                  <div className="form-group">
+                    <label className="label">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      Informacion General (opcional)
+                    </label>
+                    <input
+                      id="info-input"
+                      type="file"
+                      accept=".xlsx,.xls"
+                      style={{ display: 'none' }}
+                      onChange={(e) => setInfoFile(e.target.files?.[0] || null)}
+                    />
+                    <div
+                      className={`file-dropzone ${infoFile ? 'has-file' : ''}`}
+                      onClick={() => document.getElementById('info-input').click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        const file = e.dataTransfer.files?.[0]
+                        if (file) setInfoFile(file)
+                      }}
+                    >
+                      {infoFile ? (
+                        <>
+                          <svg className="dropzone-icon file" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                          </svg>
+                          <p className="dropzone-filename">{infoFile.name}</p>
+                          <p className="dropzone-hint">Clic para cambiar el archivo</p>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="dropzone-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <polyline points="16 16 12 12 8 16"/>
+                            <line x1="12" y1="12" x2="12" y2="21"/>
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                          </svg>
+                          <p className="dropzone-title">Suba el archivo de Informacion General</p>
+                          <p className="dropzone-hint">Debe contener las hojas "Cuentas" y "Entidades"</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   {/* ── Fecha (obligatoria) ── */}
                   <div className="form-group">
                     <label className="label">
@@ -334,72 +285,6 @@ function App() {
                     <p className={`hint ${resultMsg.startsWith('Error') ? 'error' : 'success'}`}>{resultMsg}</p>
                   )}
                 </div>
-              ) : (
-                <div className="form-section">
-                  <div className="form-group">
-                    <label className="label">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>
-                      </svg>
-                      Tabla de destino
-                    </label>
-                    <select
-                      className="select-input"
-                      value={targetTable}
-                      onChange={(e) => { setTargetTable(e.target.value); setFormData({}) }}
-                    >
-                      <option value="cuentas">Cuentas</option>
-                      <option value="maestro_personal">Maestro Personal</option>
-                      <option value="administradoras">Administradoras</option>
-                    </select>
-                  </div>
-
-                  {TABLE_FIELDS[targetTable].map(field => (
-                    <div className="form-group" key={field.key}>
-                      <label className="label">
-                        {field.label}
-                        {field.required && <span className="required-star">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={field.placeholder}
-                        className="select-input"
-                        value={formData[field.key] || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
-
-                  <button className="btn-primary" type="button" onClick={agregarRegistro} disabled={mod1Loading}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                    {mod1Loading ? 'Guardando...' : 'Agregar Registro'}
-                  </button>
-
-                  {mod1Msg && (
-                    <p className={`hint ${mod1Msg.startsWith('Error') ? 'error' : 'success'}`}>{mod1Msg}</p>
-                  )}
-
-                  <div className="module-preview">
-                    <h3>Registros recientes</h3>
-                    {recentRecords.length === 0 ? (
-                      <p className="hint">No hay registros recientes.</p>
-                    ) : (
-                      <ul>
-                        {recentRecords.map((record, i) => (
-                          <li key={i}>
-                            <strong>{record.table}</strong>
-                            <span>{record.code}</span>
-                            <span>{record.detail}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

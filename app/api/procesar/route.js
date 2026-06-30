@@ -5,6 +5,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData()
     const archivo = formData.get('archivo')
+    const informacion = formData.get('informacion')
     const fecha = formData.get('fecha')
 
     if (!archivo || !fecha) {
@@ -12,7 +13,8 @@ export async function POST(request) {
     }
 
     const buffer = Buffer.from(await archivo.arrayBuffer())
-    const outputBuffer = await procesarNomina(buffer, fecha)
+    const infoBuffer = informacion ? Buffer.from(await informacion.arrayBuffer()) : null
+    const outputBuffer = await procesarNomina(buffer, fecha, infoBuffer)
 
     return new NextResponse(outputBuffer, {
       status: 200,
